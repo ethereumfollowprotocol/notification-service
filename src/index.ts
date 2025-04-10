@@ -44,7 +44,7 @@ Bun.serve({
     },
     websocket: {
         open(ws: ServerWebSocket<WebSocketData>) {
-            console.log('WebSocket opened', ws);
+            console.log('[New Client] subbed to:', ws?.data?.address);
             clients.add(ws);
         },
         close(ws) {

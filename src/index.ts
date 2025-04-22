@@ -1,25 +1,77 @@
 // live-etl-websocket/index.ts
 import postgres from "postgres";
 import { env } from "#/env";
-import type { ServerWebSocket } from "bun";
+import { sleep, type ServerWebSocket } from "bun";
 import { getListId, getListUser, parseListOperation, validatePrimaryListOp, getENSProfileFromAddress } from "./efp";
 
-const client = postgres(env.DATABASE_URL, {
-    publications: 'global_publication',
-    types: {
-        bigint: postgres.BigInt
-    }
-})
+export async function setupDbClient() {
+    const client = postgres(env.DATABASE_URL, {
+        publications: 'global_publication',
+        types: {
+            bigint: postgres.BigInt
+        }
+    })
 
-client.subscribe(
-    'events',
-    async (row, { command, relation }) => {
-        await handleEvent(row)
-    },
-    () => {
-        console.log(`Connected to EFP Global Publication`)
+    try {
+        client.subscribe(
+            'events',
+            async (row, { command, relation }) => {
+                try {
+                    await handleEvent(row)
+                } catch (err) {
+                    console.error('[POSTGRES] Error handling event:', err);
+                }
+            },
+            () => {
+                console.log(`Connected to EFP Global Publication`)
+            },
+            () => {
+                console.error('[POSTGRES] Subscription error occurred.');
+                retryConnection();
+            }
+        );
+    } catch (err) {
+        console.error('[POSTGRES] Initial subscription setup failed:', err);
+        retryConnection();
     }
-)
+}
+
+let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function retryConnection() {
+    if (retryTimeout) return;
+    retryTimeout = setTimeout(() => {
+        retryTimeout = null;
+        console.log('[POSTGRES] Retrying subscription...');
+        setupDbClient();
+    }, 5000);
+}
+
+async function startHeartbeat() {
+    const response = await fetch(`${env.HEARTBEAT_URL}`)
+    const text = await response.text()
+    console.log(`Heartbeat registered`)
+    let heartbeat = 0
+    for (;;) {
+        await sleep(1000)
+        console.log(`waiting for events...`)
+        heartbeat++
+        if (heartbeat > 300 && env.HEARTBEAT_URL && env.HEARTBEAT_URL !== 'unset') {
+            // call snitch
+            try {
+                const response = await fetch(`${env.HEARTBEAT_URL}`)
+                const text = await response.text()
+                console.log(`Heartbeat registered`)
+                heartbeat = 0
+            } catch (err) {
+                console.log(`Failed to register heartbeat `)
+            }
+        }
+    }
+}
+
+setupDbClient()
+startHeartbeat()
 
 interface WebSocketData {
     address: string;

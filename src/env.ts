@@ -10,6 +10,7 @@ export const env = Object.freeze({
     BASE_RPC_URL: getEnvVariable("BASE_RPC_URL"),
     OP_RPC_URL: getEnvVariable("OP_RPC_URL"),
     ETH_RPC_URL: getEnvVariable("ETH_RPC_URL"),
+    HEARTBEAT_URL: getEnvVariable("HEARTBEAT_URL"),
 });
 
 function getEnvVariable<T extends keyof EnvironmentVariables>(name: T) {

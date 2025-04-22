@@ -6,6 +6,7 @@ interface EnvironmentVariables {
     readonly BASE_RPC_URL: string;
     readonly OP_RPC_URL: string;
     readonly ETH_RPC_URL: string;
+    readonly HEARTBEAT_URL: string;
 }
 
 declare module "bun" {
